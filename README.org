@@ -1,5 +1,5 @@
 
-* Getting Start:
+* Getting Start
 For example, to run on the `vulkan` backend, try:
 #+begin_src bash
 cargo run --features vulkan
@@ -24,6 +24,6 @@ You can use mouse to rotate your look-direction
   | v   | move down     |
   |-----+---------------|
 
-* TODO
+* -TODO-
   - better docs
   - improve the code
