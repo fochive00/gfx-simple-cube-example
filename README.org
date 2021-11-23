@@ -1,0 +1,29 @@
+
+* Getting Start:
+For example, to run on the `vulkan` backend, try:
+#+begin_src bash
+cargo run --features vulkan
+#+end_src
+
+* 3D camera
+
+You can use mouse to rotate your look-direction
+  |-----+---------------|
+  | key | action        |
+  |-----+---------------|
+  | w   | move forward  |
+  |-----+---------------|
+  | a   | move left     |
+  |-----+---------------|
+  | s   | move backward |
+  |-----+---------------|
+  | d   | move right    |
+  |-----+---------------|
+  | c   | move up       |
+  |-----+---------------|
+  | v   | move down     |
+  |-----+---------------|
+
+* TODO
+  - better docs
+  - improve the code

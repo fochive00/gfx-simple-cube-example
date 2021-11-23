@@ -1,0 +1,9 @@
+
+## Getting Start:
+
+For example, to run on the `vulkan` backend, try:
+```sh
+cargo run --features vulkan
+```
+
+## 3D camera
