@@ -17,15 +17,6 @@ extern crate gfx_backend_metal as back;
 #[cfg(feature = "vulkan")]
 extern crate gfx_backend_vulkan as back;
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen(start)]
-pub fn wasm_main() {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-    main();
-}
 
 mod renderer;
 mod entities;
@@ -53,10 +44,6 @@ pub const DIMS: window::Extent2D = window::Extent2D { width: 960, height: 540 };
 pub const TITLE: &str = "Cube";
 
 fn main() {
-    #[cfg(target_arch = "wasm32")]
-    console_log::init_with_level(log::Level::Debug).unwrap();
-
-    #[cfg(not(target_arch = "wasm32"))]
     env_logger::init();
 
     #[cfg(not(any(
@@ -84,16 +71,6 @@ fn main() {
 
     // instantiate backend
     let window = window_builder.build(&event_loop).unwrap();
-
-    #[cfg(target_arch = "wasm32")]
-    web_sys::window()
-        .unwrap()
-        .document()
-        .unwrap()
-        .body()
-        .unwrap()
-        .append_child(&winit::platform::web::WindowExtWebSys::canvas(&window))
-        .unwrap();
 
     let instance = back::Instance::create(TITLE, 1)
         .expect("Failed to create an instance!");
