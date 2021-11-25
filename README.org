@@ -24,8 +24,7 @@ You can use mouse to rotate your look-direction
   | v   | move down     |
   |-----+---------------|
 
-* TODO 
-TODO
+* TODO TODO
   - better docs
   - improve the code
 
