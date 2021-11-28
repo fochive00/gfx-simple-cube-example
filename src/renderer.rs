@@ -336,6 +336,7 @@ where
         }
 
         self.cube.update();
+        self.camera().update_view();
 
         // Rendering
         let cmd_buffer = &mut self.cmd_buffers[frame_idx];

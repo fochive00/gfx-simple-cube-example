@@ -1,9 +1,28 @@
-// use std::ops::Add;
+
+use std::{collections::HashMap, hash::Hash};
+use std::time::Instant;
 
 extern crate nalgebra as na;
 
-use winit::event::{Event, VirtualKeyCode};
+use winit::{
+    event::{ButtonId, DeviceEvent, ElementState, Event, VirtualKeyCode, WindowEvent}
+};
 use std::f32::consts::PI;
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+enum Input {
+    Button(ButtonId),
+    Key(VirtualKeyCode),
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+enum Action {
+    Forward,
+    Right,
+    Up,
+    Yaw,
+    Pitch,
+}
 
 #[allow(dead_code)]
 pub struct CameraProj3 {
@@ -22,7 +41,11 @@ pub struct CameraProj3 {
     flip_y: bool,
 
     view: na::Matrix4<f32>,
-    proj: na::Matrix4<f32>
+    proj: na::Matrix4<f32>,
+
+    time: Instant,
+    input_map: HashMap<Input, ElementState>,
+    actions: HashMap<Action, f32>,
 }
 
 impl CameraProj3 {
@@ -32,12 +55,13 @@ impl CameraProj3 {
         let znear = 0.1;
         let zfar = 1000.0;
 
-        let position = na::point!(2.0, 2.0, 2.0);
-        let target = na::point!(0.0, 0.0, 0.0);
+        let position = na::Point3::new(2.0, 2.0, 2.0);
+        // let position = na::point!(2.0, 2.0, 2.0);
+        let target = na::Point3::origin();
         let look_direction = (target - position).normalize();
         let right_direction = look_direction.cross(&na::Vector3::z()).normalize();
         
-        let movement_speed = 0.1;
+        let movement_speed = 1.0;
         let rotation_speed = 0.1;
 
         let flip_y = true;
@@ -55,7 +79,21 @@ impl CameraProj3 {
             zfar
         ).to_homogeneous();
 
-        println!("projective: {:?}", proj);
+        let time = Instant::now();
+
+        // println!("projective: {:?}", proj);
+        let input_map = HashMap::new();
+
+        let actions = {
+            let mut actions = HashMap::new();
+            actions.insert(Action::Forward, 0.0);
+            actions.insert(Action::Right,   0.0);
+            actions.insert(Action::Up,      0.0);
+            actions.insert(Action::Yaw,     0.0);
+            actions.insert(Action::Pitch,   0.0);
+
+            actions
+        };
 
         Self {
             aspect,
@@ -69,7 +107,10 @@ impl CameraProj3 {
             rotation_speed,
             flip_y,
             view,
-            proj
+            proj,
+            time,
+            input_map,
+            actions
         }
     }
 
@@ -77,6 +118,7 @@ impl CameraProj3 {
     fn up_direction(&self) -> na::Vector3<f32> {
         self.right_direction.cross(&self.look_direction)
     }
+
 }
 
 impl super::Camera for CameraProj3 {
@@ -85,6 +127,40 @@ impl super::Camera for CameraProj3 {
     }
 
     fn update_view(&mut self) {
+        let dt = self.time.elapsed().as_secs_f32();
+        self.time = Instant::now();
+
+        let mut flip_y = 1.0;
+        if self.flip_y {
+            flip_y = -1.0;
+        }
+
+        // println!("{:?}", self.actions);
+        let move_direction = 
+            self.actions[&Action::Forward] * self.look_direction +
+            self.actions[&Action::Right] * self.right_direction +
+            self.actions[&Action::Up] * self.up_direction() * flip_y;
+
+        // rotation
+        let x = self.actions[&Action::Yaw] * self.rotation_speed / 180.0 * PI;
+        let y = self.actions[&Action::Pitch] * self.rotation_speed / 180.0 * PI * flip_y;
+
+        *self.actions.get_mut(&Action::Yaw).unwrap() = 0.0;
+        *self.actions.get_mut(&Action::Pitch).unwrap() = 0.0;
+
+        let axis = na::Unit::new_normalize(self.look_direction.cross(&self.right_direction));
+        let rot_quat1 = na::UnitQuaternion::from_axis_angle(&axis, x);
+        let axis = na::Unit::new_normalize(-1.0 * self.right_direction);
+        let rot_quat2 = na::UnitQuaternion::from_axis_angle(&axis, y);
+        let rot_quat = rot_quat1.nlerp(&rot_quat2, 0.5);
+        
+        self.look_direction = rot_quat * self.look_direction;
+        self.right_direction = rot_quat * self.right_direction;
+
+        // transform
+        self.position += move_direction * self.movement_speed * dt;
+
+        // update view matrix
         self.view = {
             let view = na::Isometry3::look_at_rh(
                 &self.position, 
@@ -96,78 +172,57 @@ impl super::Camera for CameraProj3 {
         }
     }
 
-    fn event_handler<T>(&mut self, event: &Event<T>) {
+    fn handle_event<T>(&mut self, event: &Event<T>) {
         match event {
-            winit::event::Event::WindowEvent { event: window_event, .. } => {
-                match window_event {
-                    winit::event::WindowEvent::KeyboardInput {
+            Event::WindowEvent { event, .. } => {
+                match event {
+                    WindowEvent::KeyboardInput {
                         input:
                             winit::event::KeyboardInput {
-                                virtual_keycode: Some(vkey),
+                                virtual_keycode: Some(key_code),
+                                state,
                                 ..
                             },
                         ..
                     } => {
-                        match vkey {
-                            VirtualKeyCode::W => self.position = self.position + self.movement_speed * self.look_direction,
-                            VirtualKeyCode::S => self.position = self.position - self.movement_speed * self.look_direction,
-        
-                            VirtualKeyCode::A => self.position = self.position - self.movement_speed  * self.right_direction,
-                            VirtualKeyCode::D => self.position = self.position + self.movement_speed  * self.right_direction,
-        
-                            VirtualKeyCode::C => {
-                                let mut direction = self.up_direction();
-                                if self.flip_y {
-                                    direction = -direction;
-                                }
-                                
-                                self.position = self.position + self.movement_speed  * direction;
+                        let prev_state = self.input_map.insert(Input::Key(*key_code), *state);
+
+                        let factor = if prev_state == Some(*state) {
+                            0.0 // repeat
+                        } else {
+                            match state {
+                                ElementState::Pressed => 1.0,
+                                ElementState::Released => -1.0,
                             }
-                            VirtualKeyCode::V => {
-                                let mut direction = self.up_direction();
-                                if self.flip_y {
-                                    direction = -direction;
-                                }
-                                self.position = self.position - self.movement_speed  * direction;
-                            }
+                        };
+
+                        match key_code {
+                            VirtualKeyCode::W => *self.actions.get_mut(&Action::Forward).unwrap() += factor,
+                            VirtualKeyCode::S => *self.actions.get_mut(&Action::Forward).unwrap() -= factor,
+                            VirtualKeyCode::D => *self.actions.get_mut(&Action::Right).unwrap() += factor,
+                            VirtualKeyCode::A => *self.actions.get_mut(&Action::Right).unwrap() -= factor,
+                            VirtualKeyCode::C => *self.actions.get_mut(&Action::Up).unwrap() += factor,
+                            VirtualKeyCode::V => *self.actions.get_mut(&Action::Up).unwrap() -= factor,
                             _ => ()
                         }
-                        
                     },
-        
                     _ => ()
                 }
             }
 
-            winit::event::Event::DeviceEvent { event: device_event, .. } => {
-                match device_event {
+            Event::DeviceEvent { event, .. } => {
+                match event {
                     winit::event::DeviceEvent::MouseMotion { delta } => {
-                        let     x = (delta.0 as f32) * self.rotation_speed / 180.0 * PI;
-                        let mut y = (delta.1 as f32) * self.rotation_speed / 180.0 * PI;
-
-                        if self.flip_y {
-                            y *= -1.0;
-                        }
-                        // println!("x: {}, y: {}", x, y);
-
-                        let axis = na::Unit::new_normalize(self.look_direction.cross(&self.right_direction));
-                        let rot_quat1 = na::UnitQuaternion::from_axis_angle(&axis, x);
-
-                        let axis = na::Unit::new_normalize(-1.0 * self.right_direction);
-                        let rot_quat2 = na::UnitQuaternion::from_axis_angle(&axis, y);
-
-                        let rot_quat = rot_quat1.nlerp(&rot_quat2, 0.5);
-                        self.look_direction = rot_quat * self.look_direction;
-                        self.right_direction = rot_quat * self.right_direction;
+                        *self.actions.get_mut(&Action::Yaw).unwrap() += delta.0 as f32;
+                        *self.actions.get_mut(&Action::Pitch).unwrap() += delta.1 as f32;
+                    }
+                    DeviceEvent::Button { state, button } => {
+                        self.input_map.insert(Input::Button(*button), *state);
                     }
                     _ => ()
                 }
-                
             }
             _ => ()
         }
-        
-
-        self.update_view();
     }
 }

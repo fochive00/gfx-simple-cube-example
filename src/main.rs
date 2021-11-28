@@ -115,7 +115,7 @@ fn main() {
     event_loop.run(move |event, _, control_flow| {
         *control_flow = winit::event_loop::ControlFlow::Poll;
 
-        renderer.camera().event_handler(&event);
+        renderer.camera().handle_event(&event);
         match event {
             winit::event::Event::WindowEvent { event, .. } => {
                 match event {
