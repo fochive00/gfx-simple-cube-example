@@ -4,8 +4,8 @@ use std::time::Instant;
 
 extern crate nalgebra as na;
 
-use winit::{
-    event::{ButtonId, DeviceEvent, ElementState, Event, VirtualKeyCode, WindowEvent}
+use winit::event::{
+    ButtonId, DeviceEvent, ElementState, Event, VirtualKeyCode, WindowEvent
 };
 use std::f32::consts::PI;
 
@@ -153,7 +153,7 @@ impl super::Camera for CameraProj3 {
         let axis = na::Unit::new_normalize(-1.0 * self.right_direction);
         let rot_quat2 = na::UnitQuaternion::from_axis_angle(&axis, y);
         let rot_quat = rot_quat1.nlerp(&rot_quat2, 0.5);
-        
+
         self.look_direction = rot_quat * self.look_direction;
         self.right_direction = rot_quat * self.right_direction;
 
